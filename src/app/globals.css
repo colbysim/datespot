@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-surface-base text-text-primary font-sans;
+    min-height: 100dvh;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-border rounded-full;
+  }
+}
+
+@layer components {
+  /* Skeleton shimmer */
+  .skeleton {
+    @apply bg-surface-elevated rounded-xl relative overflow-hidden;
+  }
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.04) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite linear;
+  }
+
+  /* Glass effect for modals/sheets */
+  .glass {
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    @apply bg-surface-card/90;
+  }
+
+  /* Chip styles */
+  .chip {
+    @apply px-3.5 py-2 rounded-full text-sm font-medium transition-all duration-200
+           bg-surface-elevated text-text-secondary border border-surface-border
+           hover:border-brand-orange/40 cursor-pointer select-none;
+  }
+  .chip-active {
+    @apply bg-brand-orange/15 text-brand-orange border-brand-orange/50;
+  }
+
+  /* Gradient overlays for cards without photos */
+  .gradient-warm {
+    background: linear-gradient(135deg, #ff6b35, #f7c948);
+  }
+  .gradient-cool {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+  }
+  .gradient-sunset {
+    background: linear-gradient(135deg, #f093fb, #f5576c);
+  }
+  .gradient-ocean {
+    background: linear-gradient(135deg, #4facfe, #00f2fe);
+  }
+  .gradient-forest {
+    background: linear-gradient(135deg, #43e97b, #38f9d7);
+  }
+  .gradient-night {
+    background: linear-gradient(135deg, #a18cd1, #fbc2eb);
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
