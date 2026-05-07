@@ -4,12 +4,7 @@ import { X, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Filters } from "@/lib/types";
 import { DEFAULT_FILTERS } from "@/lib/types";
-import {
-  EXPERIENCE_TYPES,
-  CUISINE_TYPES,
-  PRICE_LEVELS,
-  VIBE_OPTIONS,
-} from "@/data/categories";
+import { PRICE_LEVELS } from "@/data/categories";
 
 interface FilterSheetProps {
   filters: Filters;
@@ -24,20 +19,6 @@ export default function FilterSheet({
   onClose,
   onApply,
 }: FilterSheetProps) {
-  // Toggle helpers
-  const toggleArrayItem = (
-    key: "experiences" | "cuisines" | "vibes",
-    item: string
-  ) => {
-    const arr = filters[key];
-    onChange({
-      ...filters,
-      [key]: arr.includes(item)
-        ? arr.filter((x) => x !== item)
-        : [...arr, item],
-    });
-  };
-
   const togglePrice = (level: number) => {
     onChange({
       ...filters,
@@ -48,10 +29,7 @@ export default function FilterSheet({
   };
 
   const hasFilters =
-    filters.experiences.length > 0 ||
-    filters.cuisines.length > 0 ||
     filters.priceLevels.length > 0 ||
-    filters.vibes.length > 0 ||
     filters.minRating > 0 ||
     filters.radiusMiles !== 15;
 
@@ -82,48 +60,6 @@ export default function FilterSheet({
         </div>
 
         <div className="px-6 pb-8 space-y-7">
-          {/* Experience Type */}
-          <section>
-            <h3 className="text-sm font-semibold text-text-secondary mb-3 uppercase tracking-wide">
-              Experience
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {EXPERIENCE_TYPES.map((exp) => (
-                <button
-                  key={exp.id}
-                  onClick={() => toggleArrayItem("experiences", exp.id)}
-                  className={cn(
-                    "chip",
-                    filters.experiences.includes(exp.id) && "chip-active"
-                  )}
-                >
-                  {exp.icon} {exp.label}
-                </button>
-              ))}
-            </div>
-          </section>
-
-          {/* Cuisine */}
-          <section>
-            <h3 className="text-sm font-semibold text-text-secondary mb-3 uppercase tracking-wide">
-              Cuisine
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {CUISINE_TYPES.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => toggleArrayItem("cuisines", c.id)}
-                  className={cn(
-                    "chip",
-                    filters.cuisines.includes(c.id) && "chip-active"
-                  )}
-                >
-                  {c.icon} {c.label}
-                </button>
-              ))}
-            </div>
-          </section>
-
           {/* Price Range */}
           <section>
             <h3 className="text-sm font-semibold text-text-secondary mb-3 uppercase tracking-wide">
@@ -139,28 +75,10 @@ export default function FilterSheet({
                     filters.priceLevels.includes(p.value) && "chip-active"
                   )}
                 >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          </section>
-
-          {/* Vibe */}
-          <section>
-            <h3 className="text-sm font-semibold text-text-secondary mb-3 uppercase tracking-wide">
-              Vibe
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {VIBE_OPTIONS.map((v) => (
-                <button
-                  key={v.id}
-                  onClick={() => toggleArrayItem("vibes", v.id)}
-                  className={cn(
-                    "chip",
-                    filters.vibes.includes(v.id) && "chip-active"
-                  )}
-                >
-                  {v.icon} {v.label}
+                  <div className="font-semibold">{p.label}</div>
+                  <div className="text-[11px] opacity-60 mt-0.5">
+                    {p.description}
+                  </div>
                 </button>
               ))}
             </div>
@@ -179,7 +97,10 @@ export default function FilterSheet({
                 step={0.5}
                 value={filters.minRating}
                 onChange={(e) =>
-                  onChange({ ...filters, minRating: parseFloat(e.target.value) })
+                  onChange({
+                    ...filters,
+                    minRating: parseFloat(e.target.value),
+                  })
                 }
                 className="flex-1 accent-brand-orange h-1.5 rounded-full
                            appearance-none bg-surface-elevated
@@ -190,11 +111,12 @@ export default function FilterSheet({
                            [&::-webkit-slider-thumb]:cursor-pointer"
               />
               <span className="text-sm font-semibold text-brand-orange min-w-[3rem] text-right">
-                {filters.minRating > 0
-                  ? `${filters.minRating}+`
-                  : "Any"}
+                {filters.minRating > 0 ? `${filters.minRating}+` : "Any"}
               </span>
             </div>
+            <p className="text-xs text-text-muted mt-2">
+              Our algorithm already filters out low-quality spots. Use this to raise the bar further.
+            </p>
           </section>
 
           {/* Radius */}

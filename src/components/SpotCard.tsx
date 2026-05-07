@@ -2,6 +2,7 @@
 
 import type { Place } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { qualityScore } from "@/lib/algorithm";
 import SpotImage from "./SpotImage";
 import { Heart, Star } from "lucide-react";
 

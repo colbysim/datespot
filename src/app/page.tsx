@@ -1,18 +1,25 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import type { Place, Filters } from "@/lib/types";
 import { DEFAULT_FILTERS } from "@/lib/types";
 import { mapPlace } from "@/lib/mappers";
+import {
+  rankAndFilter,
+  buildCuratedSections,
+  type VenueCategory,
+} from "@/lib/algorithm";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useFavorites } from "@/hooks/useFavorites";
 import Navbar from "@/components/Navbar";
 import SearchBar from "@/components/SearchBar";
+import CategoryTabs from "@/components/CategoryTabs";
 import SpotCard, { SkeletonCard } from "@/components/SpotCard";
 import FilterSheet from "@/components/FilterSheet";
 import SpotDetail from "@/components/SpotDetail";
 import FavoritesView from "@/components/FavoritesView";
+import SectionRow from "@/components/SectionRow";
 import EmptyState from "@/components/EmptyState";
 
 type Screen = "home" | "favorites" | "detail";
@@ -21,11 +28,12 @@ export default function HomePage() {
   // ─── State ──────────────────────────────────
   const [screen, setScreen] = useState<Screen>("home");
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<Place[]>([]);
+  const [rawResults, setRawResults] = useState<Place[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
 
+  const [activeCategory, setActiveCategory] = useState<VenueCategory>("all");
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
@@ -34,14 +42,32 @@ export default function HomePage() {
   const geo = useGeolocation();
   const { favorites, isFavorite, toggleFavorite } = useFavorites();
 
+  // ─── Algorithm: rank + filter results ─────
+  const filteredResults = useMemo(
+    () =>
+      rankAndFilter(
+        rawResults,
+        activeCategory,
+        filters.minRating,
+        filters.priceLevels
+      ),
+    [rawResults, activeCategory, filters.minRating, filters.priceLevels]
+  );
+
+  // ─── Algorithm: curated sections ──────────
+  const curatedSections = useMemo(
+    () => buildCuratedSections(rawResults),
+    [rawResults]
+  );
+
   // ─── Derived ────────────────────────────────
   const hasActiveFilters =
-    filters.experiences.length > 0 ||
-    filters.cuisines.length > 0 ||
     filters.priceLevels.length > 0 ||
-    filters.vibes.length > 0 ||
     filters.minRating > 0 ||
     filters.radiusMiles !== 15;
+
+  const showCuratedView =
+    activeCategory === "all" && !hasActiveFilters && hasSearched && !isLoading && !error;
 
   // ─── Search by city ─────────────────────────
   const searchByCity = useCallback(
@@ -58,9 +84,6 @@ export default function HomePage() {
           body: JSON.stringify({
             query: cityQuery,
             filters: {
-              experiences: filters.experiences,
-              cuisines: filters.cuisines,
-              priceLevels: filters.priceLevels,
               radiusMiles: filters.radiusMiles,
               latitude: geo.latitude,
               longitude: geo.longitude,
@@ -70,24 +93,16 @@ export default function HomePage() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
 
-        let places = (data.places || []).map(mapPlace);
-
-        // Client-side rating filter
-        if (filters.minRating > 0) {
-          places = places.filter(
-            (p: Place) => p.rating >= filters.minRating
-          );
-        }
-
-        setResults(places);
+        const places = (data.places || []).map(mapPlace);
+        setRawResults(places);
       } catch (e: any) {
         setError(e.message || "Search failed");
-        setResults([]);
+        setRawResults([]);
       } finally {
         setIsLoading(false);
       }
     },
-    [filters, geo.latitude, geo.longitude]
+    [filters.radiusMiles, geo.latitude, geo.longitude]
   );
 
   // ─── Search nearby ─────────────────────────
@@ -110,20 +125,15 @@ export default function HomePage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      let places = (data.places || []).map(mapPlace);
-
-      if (filters.minRating > 0) {
-        places = places.filter((p: Place) => p.rating >= filters.minRating);
-      }
-
-      setResults(places);
+      const places = (data.places || []).map(mapPlace);
+      setRawResults(places);
     } catch (e: any) {
       setError(e.message || "Nearby search failed");
-      setResults([]);
+      setRawResults([]);
     } finally {
       setIsLoading(false);
     }
-  }, [geo.latitude, geo.longitude, filters.radiusMiles, filters.minRating]);
+  }, [geo.latitude, geo.longitude, filters.radiusMiles]);
 
   // ─── Auto-search on debounced query ────────
   useEffect(() => {
@@ -158,7 +168,8 @@ export default function HomePage() {
     setScreen("home");
   };
 
-  const selectedPlace = results.find((p) => p.id === selectedPlaceId) ||
+  const selectedPlace =
+    rawResults.find((p) => p.id === selectedPlaceId) ||
     favorites.find((f) => f.id === selectedPlaceId);
 
   // ─── Detail view ──────────────────────────
@@ -194,7 +205,7 @@ export default function HomePage() {
       ) : (
         <>
           {/* Hero + Search */}
-          <div className="px-4 md:px-6 pt-6 pb-4 max-w-6xl mx-auto">
+          <div className="px-4 md:px-6 pt-6 pb-2 max-w-6xl mx-auto">
             {/* Tagline — only before first search */}
             {!hasSearched && (
               <div className="text-center mb-6 animate-fade-in">
@@ -204,7 +215,7 @@ export default function HomePage() {
                 </h1>
                 <p className="text-text-secondary text-sm md:text-base max-w-md mx-auto">
                   Discover trending restaurants, hidden gems, and unique
-                  experiences near you.
+                  experiences — ranked by our quality algorithm.
                 </p>
               </div>
             )}
@@ -230,11 +241,21 @@ export default function HomePage() {
             )}
           </div>
 
+          {/* Category Tabs */}
+          {hasSearched && (
+            <div className="px-4 md:px-6 py-3 max-w-6xl mx-auto">
+              <CategoryTabs
+                active={activeCategory}
+                onChange={setActiveCategory}
+              />
+            </div>
+          )}
+
           {/* Results */}
           <div className="px-4 md:px-6 pb-8 max-w-6xl mx-auto">
             {/* Loading skeleton */}
             {isLoading && (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
                 {Array.from({ length: 8 }).map((_, i) => (
                   <SkeletonCard key={i} />
                 ))}
@@ -255,56 +276,80 @@ export default function HomePage() {
               />
             )}
 
-            {/* No results */}
-            {!isLoading && !error && hasSearched && results.length === 0 && (
-              <EmptyState
-                icon="🔍"
-                title="No Spots Found"
-                message="Try a different city or adjust your filters."
-                action={
-                  hasActiveFilters
-                    ? {
-                        label: "Clear Filters",
-                        onClick: () => {
-                          setFilters(DEFAULT_FILTERS);
-                          if (query) searchByCity(query);
-                          else searchNearby();
-                        },
+            {/* Curated sections view (default "All" tab, no extra filters) */}
+            {showCuratedView && curatedSections.length > 0 && (
+              <div className="space-y-8 mt-4">
+                {curatedSections.map((section) => (
+                  <SectionRow
+                    key={section.id}
+                    section={section}
+                    isFavorite={isFavorite}
+                    onToggleFavorite={toggleFavorite}
+                    onSelectPlace={openDetail}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Filtered grid view (specific category or filters active) */}
+            {!isLoading &&
+              !error &&
+              hasSearched &&
+              (!showCuratedView || curatedSections.length === 0) && (
+                <>
+                  {filteredResults.length > 0 ? (
+                    <>
+                      <div className="flex items-center justify-between mb-4 mt-4">
+                        <h2 className="text-lg font-bold text-text-primary">
+                          {activeCategory !== "all"
+                            ? `${activeCategory.charAt(0).toUpperCase() + activeCategory.slice(1)}`
+                            : query
+                              ? `Spots in ${query}`
+                              : "Date Spots Near You"}
+                        </h2>
+                        <span className="text-sm text-text-muted">
+                          {filteredResults.length} results
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {filteredResults.map((place) => (
+                          <SpotCard
+                            key={place.id}
+                            place={place}
+                            isFavorite={isFavorite(place.id)}
+                            onToggleFavorite={() => toggleFavorite(place)}
+                            onClick={() => openDetail(place.id)}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <EmptyState
+                      icon="🔍"
+                      title="No Spots Found"
+                      message={
+                        activeCategory !== "all"
+                          ? `No ${activeCategory} match your criteria. Try a different category or adjust filters.`
+                          : "Try a different city or adjust your filters."
                       }
-                    : undefined
-                }
-              />
-            )}
-
-            {/* Results grid */}
-            {!isLoading && results.length > 0 && (
-              <>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-bold text-text-primary">
-                    {query
-                      ? `Spots in ${query}`
-                      : "Date Spots Near You"}
-                  </h2>
-                  <span className="text-sm text-text-muted">
-                    {results.length} results
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {results.map((place) => (
-                    <SpotCard
-                      key={place.id}
-                      place={place}
-                      isFavorite={isFavorite(place.id)}
-                      onToggleFavorite={() => toggleFavorite(place)}
-                      onClick={() => openDetail(place.id)}
+                      action={
+                        hasActiveFilters || activeCategory !== "all"
+                          ? {
+                              label: "Reset Filters",
+                              onClick: () => {
+                                setFilters(DEFAULT_FILTERS);
+                                setActiveCategory("all");
+                              },
+                            }
+                          : undefined
+                      }
                     />
-                  ))}
-                </div>
-              </>
-            )}
+                  )}
+                </>
+              )}
 
-            {/* Initial state — no search yet, no nearby results */}
-            {!isLoading && !hasSearched && !error && results.length === 0 && (
+            {/* Initial state — no search yet */}
+            {!isLoading && !hasSearched && !error && rawResults.length === 0 && (
               <EmptyState
                 icon="🔥"
                 title="Where To Tonight?"
