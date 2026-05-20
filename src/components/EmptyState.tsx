@@ -17,15 +17,18 @@ export default function EmptyState({
   action,
 }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-20 px-6 text-center animate-fade-in">
-      <span className="text-5xl mb-4">{icon}</span>
-      <h3 className="text-lg font-semibold text-text-primary mb-2">{title}</h3>
-      <p className="text-sm text-text-secondary max-w-xs mb-6">{message}</p>
+    <div className="flex flex-col items-center justify-center py-24 px-6 text-center animate-fade-in">
+      <div className="w-20 h-20 rounded-2xl gradient-brand-subtle flex items-center justify-center mb-5">
+        <span className="text-4xl">{icon}</span>
+      </div>
+      <h3 className="text-xl font-bold text-text-primary mb-2">{title}</h3>
+      <p className="text-sm text-text-secondary max-w-xs mb-6 leading-relaxed">
+        {message}
+      </p>
       {action && (
         <button
           onClick={action.onClick}
-          className="h-10 px-6 rounded-xl bg-brand-orange text-white text-sm font-semibold
-                     hover:bg-brand-orange-dark active:scale-[0.98] transition-all"
+          className="h-11 px-8 rounded-xl btn-gradient text-sm"
         >
           {action.label}
         </button>

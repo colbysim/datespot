@@ -1,6 +1,6 @@
 "use client";
 
-import { Heart, MapPin, Flame } from "lucide-react";
+import { Heart, Compass, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Screen = "home" | "favorites";
@@ -17,32 +17,35 @@ export default function Navbar({
   favoritesCount,
 }: NavbarProps) {
   return (
-    <nav className="sticky top-0 z-30 glass border-b border-surface-border">
-      <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+    <nav className="sticky top-0 z-30 glass-strong border-b border-surface-border/60">
+      <div className="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
         {/* Logo */}
         <button
           onClick={() => onNavigate("home")}
-          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+          className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
         >
-          <Flame size={22} className="text-brand-orange" />
-          <span className="text-lg font-bold text-text-primary">
-            Date<span className="text-brand-orange">Spot</span>
+          <div className="w-8 h-8 rounded-lg gradient-brand flex items-center justify-center">
+            <Flame size={18} className="text-white" />
+          </div>
+          <span className="text-xl font-extrabold tracking-tight">
+            <span className="text-text-primary">Date</span>
+            <span className="gradient-text">Spot</span>
           </span>
         </button>
 
         {/* Right nav */}
         <div className="flex items-center gap-1">
-          {/* Nearby pill */}
+          {/* Explore */}
           <button
             onClick={() => onNavigate("home")}
             className={cn(
-              "flex items-center gap-1.5 px-3 h-9 rounded-lg text-sm font-medium transition-colors",
+              "flex items-center gap-1.5 px-4 h-10 rounded-xl text-sm font-medium transition-all",
               activeScreen === "home"
-                ? "text-brand-orange"
-                : "text-text-secondary hover:text-text-primary"
+                ? "gradient-brand-subtle text-brand-purple"
+                : "text-text-secondary hover:text-text-primary hover:bg-surface-elevated"
             )}
           >
-            <MapPin size={16} />
+            <Compass size={17} />
             <span className="hidden sm:inline">Explore</span>
           </button>
 
@@ -50,23 +53,23 @@ export default function Navbar({
           <button
             onClick={() => onNavigate("favorites")}
             className={cn(
-              "relative flex items-center gap-1.5 px-3 h-9 rounded-lg text-sm font-medium transition-colors",
+              "relative flex items-center gap-1.5 px-4 h-10 rounded-xl text-sm font-medium transition-all",
               activeScreen === "favorites"
-                ? "text-brand-orange"
-                : "text-text-secondary hover:text-text-primary"
+                ? "gradient-brand-subtle text-brand-magenta"
+                : "text-text-secondary hover:text-text-primary hover:bg-surface-elevated"
             )}
           >
             <Heart
-              size={16}
+              size={17}
               className={cn(
-                activeScreen === "favorites" && "fill-brand-orange"
+                activeScreen === "favorites" && "fill-brand-magenta"
               )}
             />
             <span className="hidden sm:inline">Saved</span>
             {favoritesCount > 0 && (
               <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px]
                               flex items-center justify-center rounded-full
-                              bg-brand-orange text-[10px] font-bold text-white px-1">
+                              gradient-brand text-[10px] font-bold text-white px-1">
                 {favoritesCount}
               </span>
             )}

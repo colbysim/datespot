@@ -11,7 +11,6 @@ import {
   Navigation,
   Clock,
   Bookmark,
-  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { mapDetail } from "@/lib/mappers";
@@ -41,9 +40,7 @@ export default function SpotDetail({
       try {
         const res = await fetch(`/api/details/${placeId}`);
         const data = await res.json();
-        if (res.ok) {
-          setDetail(mapDetail(data));
-        }
+        if (res.ok) setDetail(mapDetail(data));
       } catch (e) {
         console.error("Failed to load details:", e);
       } finally {
@@ -54,7 +51,7 @@ export default function SpotDetail({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-surface-base">
+      <div className="min-h-screen bg-white">
         <div className="aspect-[16/10] skeleton" />
         <div className="p-6 space-y-4">
           <div className="h-6 w-3/4 skeleton rounded" />
@@ -67,10 +64,10 @@ export default function SpotDetail({
 
   if (!detail) {
     return (
-      <div className="min-h-screen bg-surface-base flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <p className="text-text-secondary mb-4">Failed to load details</p>
-          <button onClick={onBack} className="text-brand-orange font-medium">
+          <button onClick={onBack} className="gradient-text font-semibold">
             Go Back
           </button>
         </div>
@@ -79,7 +76,7 @@ export default function SpotDetail({
   }
 
   return (
-    <div className="min-h-screen bg-surface-base pb-24">
+    <div className="min-h-screen bg-white pb-24">
       {/* Hero Image */}
       <div className="relative aspect-[16/10] md:aspect-[2.5/1] overflow-hidden">
         <SpotImage
@@ -91,24 +88,28 @@ export default function SpotDetail({
         />
 
         {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-surface-base via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent" />
 
         {/* Top bar */}
         <div className="absolute top-0 inset-x-0 flex items-center justify-between p-4">
           <button
             onClick={onBack}
-            className="p-2.5 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 transition-colors"
+            className="p-2.5 rounded-full bg-white/90 shadow-soft backdrop-blur-sm
+                       hover:bg-white hover:shadow-card transition-all"
           >
-            <ArrowLeft size={20} className="text-white" />
+            <ArrowLeft size={20} className="text-text-primary" />
           </button>
           <button
             onClick={onToggleFavorite}
-            className="p-2.5 rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60 transition-colors"
+            className="p-2.5 rounded-full bg-white/90 shadow-soft backdrop-blur-sm
+                       hover:bg-white hover:shadow-card transition-all"
           >
             <Heart
               size={20}
               className={cn(
-                isFavorite ? "fill-red-500 text-red-500" : "text-white"
+                isFavorite
+                  ? "fill-brand-magenta text-brand-magenta"
+                  : "text-text-muted"
               )}
             />
           </button>
@@ -122,10 +123,10 @@ export default function SpotDetail({
                 key={i}
                 onClick={() => setActivePhoto(i)}
                 className={cn(
-                  "w-2 h-2 rounded-full transition-all",
+                  "h-2 rounded-full transition-all shadow-sm",
                   i === activePhoto
-                    ? "bg-brand-orange w-5"
-                    : "bg-white/40 hover:bg-white/60"
+                    ? "w-6 gradient-brand"
+                    : "w-2 bg-black/20"
                 )}
               />
             ))}
@@ -139,15 +140,15 @@ export default function SpotDetail({
         <div>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <span className="text-xs font-semibold text-brand-orange uppercase tracking-wide">
+              <span className="text-xs font-bold gradient-text uppercase tracking-wider">
                 {detail.typeLabel}
               </span>
-              <h1 className="text-2xl md:text-3xl font-bold text-text-primary mt-1">
+              <h1 className="text-2xl md:text-3xl font-extrabold text-text-primary mt-1">
                 {detail.name}
               </h1>
             </div>
             {detail.priceLevelLabel && (
-              <span className="text-xl font-bold text-brand-orange shrink-0">
+              <span className="text-xl font-extrabold gradient-text shrink-0">
                 {detail.priceLevelLabel}
               </span>
             )}
@@ -156,8 +157,8 @@ export default function SpotDetail({
           {/* Rating */}
           <div className="flex items-center gap-2 mt-2">
             <div className="flex items-center gap-1">
-              <Star size={16} className="fill-brand-orange text-brand-orange" />
-              <span className="font-semibold text-text-primary">
+              <Star size={16} className="fill-amber-400 text-amber-400" />
+              <span className="font-bold text-text-primary">
                 {detail.rating.toFixed(1)}
               </span>
             </div>
@@ -182,8 +183,7 @@ export default function SpotDetail({
               {detail.bestFor.map((tag) => (
                 <span
                   key={tag}
-                  className="px-3 py-1.5 rounded-full text-sm font-medium
-                             bg-brand-orange/10 text-brand-orange border border-brand-orange/20"
+                  className="px-4 py-1.5 rounded-full text-sm font-medium gradient-border gradient-brand-subtle gradient-text"
                 >
                   {tag}
                 </span>
@@ -194,10 +194,12 @@ export default function SpotDetail({
 
         {/* Suggested Date Plan */}
         {detail.suggestedPlan && (
-          <div className="bg-surface-card border border-surface-border rounded-2xl p-5">
+          <div className="bg-surface-elevated/60 border border-surface-border/60 rounded-2xl p-5">
             <div className="flex items-center gap-2 mb-2">
-              <Bookmark size={16} className="text-brand-orange" />
-              <h3 className="text-sm font-semibold text-text-primary">
+              <div className="w-6 h-6 rounded-md gradient-brand flex items-center justify-center">
+                <Bookmark size={13} className="text-white" />
+              </div>
+              <h3 className="text-sm font-bold text-text-primary">
                 Date Plan Idea
               </h3>
             </div>
@@ -218,20 +220,13 @@ export default function SpotDetail({
           <div>
             <div className="flex items-center gap-2 mb-3">
               <Clock size={16} className="text-text-muted" />
-              <h3 className="text-sm font-semibold text-text-primary">
-                Hours
-              </h3>
+              <h3 className="text-sm font-bold text-text-primary">Hours</h3>
             </div>
-            <div className="bg-surface-card border border-surface-border rounded-xl p-4 space-y-1.5">
+            <div className="bg-surface-elevated/50 border border-surface-border/60 rounded-2xl p-4 space-y-2">
               {detail.hours.map((h) => (
-                <div
-                  key={h.day}
-                  className="flex justify-between text-sm"
-                >
+                <div key={h.day} className="flex justify-between text-sm">
                   <span className="text-text-secondary">{h.day}</span>
-                  <span className="text-text-primary font-medium">
-                    {h.hours}
-                  </span>
+                  <span className="text-text-primary font-medium">{h.hours}</span>
                 </div>
               ))}
             </div>
@@ -248,29 +243,24 @@ export default function SpotDetail({
               {detail.reviews.map((review, i) => (
                 <div
                   key={i}
-                  className="bg-surface-card border border-surface-border rounded-xl p-4"
+                  className="bg-white border border-surface-border/60 rounded-2xl p-4 shadow-soft"
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-text-primary">
+                    <span className="text-sm font-semibold text-text-primary">
                       {review.author}
                     </span>
                     <div className="flex items-center gap-1">
-                      <Star
-                        size={12}
-                        className="fill-brand-orange text-brand-orange"
-                      />
-                      <span className="text-xs text-text-secondary">
+                      <Star size={12} className="fill-amber-400 text-amber-400" />
+                      <span className="text-xs text-text-secondary font-medium">
                         {review.rating}
                       </span>
                     </div>
                   </div>
-                  <p className="text-sm text-text-secondary line-clamp-3">
+                  <p className="text-sm text-text-secondary line-clamp-3 leading-relaxed">
                     {review.text}
                   </p>
                   {review.timeAgo && (
-                    <p className="text-xs text-text-muted mt-2">
-                      {review.timeAgo}
-                    </p>
+                    <p className="text-xs text-text-muted mt-2">{review.timeAgo}</p>
                   )}
                 </div>
               ))}
@@ -280,7 +270,7 @@ export default function SpotDetail({
       </div>
 
       {/* Fixed bottom action bar */}
-      <div className="fixed bottom-0 inset-x-0 glass border-t border-surface-border
+      <div className="fixed bottom-0 inset-x-0 glass-strong border-t border-surface-border/40
                       px-5 py-4 z-30">
         <div className="max-w-3xl mx-auto flex gap-3">
           {detail.mapsUrl && (
@@ -289,8 +279,7 @@ export default function SpotDetail({
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 h-12 flex-1 rounded-xl
-                         bg-brand-orange text-white font-semibold
-                         hover:bg-brand-orange-dark active:scale-[0.98] transition-all"
+                         btn-gradient"
             >
               <Navigation size={16} />
               Directions
@@ -301,7 +290,7 @@ export default function SpotDetail({
               href={`tel:${detail.phone}`}
               className="flex items-center justify-center h-12 w-12 rounded-xl
                          bg-surface-elevated border border-surface-border
-                         text-text-secondary hover:text-brand-orange hover:border-brand-orange/30
+                         text-text-secondary hover:text-brand-purple hover:shadow-glow
                          transition-all"
               aria-label="Call"
             >
@@ -315,7 +304,7 @@ export default function SpotDetail({
               rel="noopener noreferrer"
               className="flex items-center justify-center h-12 w-12 rounded-xl
                          bg-surface-elevated border border-surface-border
-                         text-text-secondary hover:text-brand-orange hover:border-brand-orange/30
+                         text-text-secondary hover:text-brand-purple hover:shadow-glow
                          transition-all"
               aria-label="Website"
             >

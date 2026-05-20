@@ -11,6 +11,7 @@ interface SpotCardProps {
   isFavorite: boolean;
   onToggleFavorite: () => void;
   onClick: () => void;
+  featured?: boolean;
 }
 
 export default function SpotCard({
@@ -18,6 +19,7 @@ export default function SpotCard({
   isFavorite,
   onToggleFavorite,
   onClick,
+  featured = false,
 }: SpotCardProps) {
   const photos = place.photoUrls.length > 0 ? place.photoUrls : [place.photoUrl];
   const hasMultiple = photos.length > 1;
@@ -43,33 +45,32 @@ export default function SpotCard({
 
   const handleTouchMove = (e: React.TouchEvent) => {
     touchDeltaX.current = e.touches[0].clientX - touchStartX.current;
-    if (Math.abs(touchDeltaX.current) > 10) {
-      isSwiping.current = true;
-    }
+    if (Math.abs(touchDeltaX.current) > 10) isSwiping.current = true;
   };
 
   const handleTouchEnd = () => {
     if (!isSwiping.current) return;
-    if (touchDeltaX.current < -40 && activeIndex < photos.length - 1) {
+    if (touchDeltaX.current < -40 && activeIndex < photos.length - 1)
       setActiveIndex((i) => i + 1);
-    } else if (touchDeltaX.current > 40 && activeIndex > 0) {
+    else if (touchDeltaX.current > 40 && activeIndex > 0)
       setActiveIndex((i) => i - 1);
-    }
     touchDeltaX.current = 0;
     isSwiping.current = false;
   };
 
   const handleCardClick = () => {
-    // Don't navigate to detail if user was swiping
     if (!isSwiping.current) onClick();
   };
 
   return (
     <div
       onClick={handleCardClick}
-      className="group bg-surface-card border border-surface-border rounded-2xl overflow-hidden
-                 hover:border-brand-orange/30 hover:bg-surface-card-hover
-                 transition-all duration-200 cursor-pointer animate-fade-in"
+      className={cn(
+        "group bg-white rounded-2xl overflow-hidden cursor-pointer card-hover animate-fade-in",
+        featured
+          ? "gradient-border shadow-card"
+          : "shadow-card border border-surface-border/60"
+      )}
     >
       {/* Image carousel */}
       <div
@@ -78,7 +79,6 @@ export default function SpotCard({
         onTouchMove={hasMultiple ? handleTouchMove : undefined}
         onTouchEnd={hasMultiple ? handleTouchEnd : undefined}
       >
-        {/* Image track */}
         <div
           className="flex h-full transition-transform duration-300 ease-out"
           style={{ transform: `translateX(-${activeIndex * 100}%)` }}
@@ -100,12 +100,11 @@ export default function SpotCard({
         {hasMultiple && activeIndex > 0 && (
           <button
             onClick={(e) => goTo(activeIndex - 1, e)}
-            className="absolute left-1.5 top-1/2 -translate-y-1/2
+            className="absolute left-2 top-1/2 -translate-y-1/2
                        w-7 h-7 flex items-center justify-center rounded-full
-                       bg-black/50 text-white backdrop-blur-sm
-                       opacity-0 group-hover:opacity-100 transition-opacity
-                       hover:bg-black/70"
-            aria-label="Previous photo"
+                       bg-white/90 text-text-primary shadow-soft
+                       opacity-0 group-hover:opacity-100 transition-all
+                       hover:bg-white hover:shadow-card"
           >
             <ChevronLeft size={16} />
           </button>
@@ -113,12 +112,11 @@ export default function SpotCard({
         {hasMultiple && activeIndex < photos.length - 1 && (
           <button
             onClick={(e) => goTo(activeIndex + 1, e)}
-            className="absolute right-1.5 top-1/2 -translate-y-1/2
+            className="absolute right-2 top-1/2 -translate-y-1/2
                        w-7 h-7 flex items-center justify-center rounded-full
-                       bg-black/50 text-white backdrop-blur-sm
-                       opacity-0 group-hover:opacity-100 transition-opacity
-                       hover:bg-black/70"
-            aria-label="Next photo"
+                       bg-white/90 text-text-primary shadow-soft
+                       opacity-0 group-hover:opacity-100 transition-all
+                       hover:bg-white hover:shadow-card"
           >
             <ChevronRight size={16} />
           </button>
@@ -132,12 +130,11 @@ export default function SpotCard({
                 key={i}
                 onClick={(e) => goTo(i, e)}
                 className={cn(
-                  "h-1.5 rounded-full transition-all",
+                  "h-1.5 rounded-full transition-all shadow-sm",
                   i === activeIndex
-                    ? "w-4 bg-brand-orange"
-                    : "w-1.5 bg-white/40 hover:bg-white/60"
+                    ? "w-4 bg-white"
+                    : "w-1.5 bg-white/50"
                 )}
-                aria-label={`Photo ${i + 1}`}
               />
             ))}
           </div>
@@ -145,7 +142,7 @@ export default function SpotCard({
 
         {/* Type badge */}
         <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-semibold
-                        bg-black/60 text-white backdrop-blur-sm">
+                        bg-white/90 text-text-primary shadow-soft backdrop-blur-sm">
           {place.typeLabel}
         </span>
 
@@ -155,17 +152,17 @@ export default function SpotCard({
             e.stopPropagation();
             onToggleFavorite();
           }}
-          className="absolute top-3 right-3 p-2 rounded-full bg-black/40 backdrop-blur-sm
-                     hover:bg-black/60 transition-colors"
+          className="absolute top-3 right-3 p-2 rounded-full bg-white/90 shadow-soft
+                     backdrop-blur-sm hover:bg-white hover:shadow-card transition-all"
           aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
         >
           <Heart
-            size={18}
+            size={16}
             className={cn(
               "transition-colors",
               isFavorite
-                ? "fill-red-500 text-red-500"
-                : "text-white/80 hover:text-red-400"
+                ? "fill-brand-magenta text-brand-magenta"
+                : "text-text-muted hover:text-brand-magenta"
             )}
           />
         </button>
@@ -173,13 +170,13 @@ export default function SpotCard({
         {/* Rating badge */}
         {place.rating > 0 && (
           <div className="absolute bottom-3 left-3 flex items-center gap-1
-                         px-2 py-1 rounded-full bg-black/60 backdrop-blur-sm">
-            <Star size={13} className="fill-brand-orange text-brand-orange" />
-            <span className="text-xs font-semibold text-white">
+                         px-2.5 py-1 rounded-full bg-white/90 shadow-soft backdrop-blur-sm">
+            <Star size={13} className="fill-amber-400 text-amber-400" />
+            <span className="text-xs font-semibold text-text-primary">
               {place.rating.toFixed(1)}
             </span>
             {place.ratingCount > 0 && (
-              <span className="text-xs text-white/60">
+              <span className="text-xs text-text-muted">
                 ({place.ratingCount.toLocaleString()})
               </span>
             )}
@@ -188,8 +185,8 @@ export default function SpotCard({
 
         {/* Price badge */}
         {place.priceLevelLabel && (
-          <span className="absolute bottom-3 right-3 px-2 py-1 rounded-full text-xs font-semibold
-                          bg-black/60 text-brand-orange backdrop-blur-sm">
+          <span className="absolute bottom-3 right-3 px-2.5 py-1 rounded-full text-xs font-bold
+                          bg-white/90 shadow-soft backdrop-blur-sm gradient-text">
             {place.priceLevelLabel}
           </span>
         )}
@@ -198,7 +195,7 @@ export default function SpotCard({
       {/* Info */}
       <div className="p-4 space-y-2">
         <h3 className="font-semibold text-text-primary leading-tight line-clamp-1
-                       group-hover:text-brand-orange transition-colors">
+                       group-hover:gradient-text transition-colors">
           {place.name}
         </h3>
 
@@ -212,8 +209,8 @@ export default function SpotCard({
             {place.tags.slice(0, 3).map((tag) => (
               <span
                 key={tag}
-                className="px-2 py-0.5 rounded-full text-[11px] font-medium
-                           bg-brand-orange/10 text-brand-orange"
+                className="px-2.5 py-0.5 rounded-full text-[11px] font-medium
+                           gradient-brand-subtle text-brand-purple"
               >
                 {tag}
               </span>
@@ -228,7 +225,7 @@ export default function SpotCard({
 // ─── Skeleton loader ────────────────────────
 export function SkeletonCard() {
   return (
-    <div className="bg-surface-card border border-surface-border rounded-2xl overflow-hidden">
+    <div className="bg-white border border-surface-border/60 rounded-2xl overflow-hidden shadow-soft">
       <div className="aspect-[4/3] skeleton" />
       <div className="p-4 space-y-3">
         <div className="h-4 w-3/4 skeleton rounded" />

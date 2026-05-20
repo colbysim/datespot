@@ -205,17 +205,17 @@ export default function HomePage() {
       ) : (
         <>
           {/* Hero + Search */}
-          <div className="px-4 md:px-6 pt-6 pb-2 max-w-6xl mx-auto">
+          <div className="px-5 md:px-6 pt-8 pb-2 max-w-6xl mx-auto">
             {/* Tagline — only before first search */}
             {!hasSearched && (
-              <div className="text-center mb-6 animate-fade-in">
-                <h1 className="text-2xl md:text-3xl font-bold text-text-primary mb-2">
+              <div className="text-center mb-8 animate-fade-in">
+                <h1 className="text-3xl md:text-5xl font-extrabold text-text-primary mb-3 tracking-tight">
                   Find Your Perfect{" "}
-                  <span className="text-brand-orange">Date Spot</span>
+                  <span className="gradient-text">Date Spot</span>
                 </h1>
-                <p className="text-text-secondary text-sm md:text-base max-w-md mx-auto">
+                <p className="text-text-secondary text-sm md:text-lg max-w-lg mx-auto leading-relaxed">
                   Discover trending restaurants, hidden gems, and unique
-                  experiences — ranked by our quality algorithm.
+                  experiences — curated by our quality algorithm.
                 </p>
               </div>
             )}
@@ -252,7 +252,7 @@ export default function HomePage() {
           )}
 
           {/* Results */}
-          <div className="px-4 md:px-6 pb-8 max-w-6xl mx-auto">
+          <div className="px-5 md:px-6 pb-12 max-w-6xl mx-auto">
             {/* Loading skeleton */}
             {isLoading && (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
@@ -278,7 +278,7 @@ export default function HomePage() {
 
             {/* Curated sections view (default "All" tab, no extra filters) */}
             {showCuratedView && curatedSections.length > 0 && (
-              <div className="space-y-8 mt-4">
+              <div className="space-y-10 mt-6">
                 {curatedSections.map((section) => (
                   <SectionRow
                     key={section.id}

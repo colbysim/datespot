@@ -37,17 +37,17 @@ export default function FilterSheet({
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/60 z-40 animate-fade-in"
+        className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 animate-fade-in"
         onClick={onClose}
       />
 
       {/* Sheet */}
       <div className="fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] overflow-y-auto
-                      rounded-t-3xl glass border-t border-surface-border
+                      rounded-t-3xl bg-white shadow-elevated border-t border-surface-border/40
                       animate-slide-up hide-scrollbar">
         {/* Handle */}
-        <div className="sticky top-0 glass z-10 pt-3 pb-2 px-6">
-          <div className="w-10 h-1 rounded-full bg-surface-border mx-auto mb-3" />
+        <div className="sticky top-0 bg-white/95 backdrop-blur-sm z-10 pt-3 pb-2 px-6">
+          <div className="w-10 h-1 rounded-full bg-surface-border mx-auto mb-4" />
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-text-primary">Filters</h2>
             <button
@@ -59,7 +59,7 @@ export default function FilterSheet({
           </div>
         </div>
 
-        <div className="px-6 pb-8 space-y-7">
+        <div className="px-6 pb-8 space-y-8">
           {/* Price Range */}
           <section>
             <h3 className="text-sm font-semibold text-text-secondary mb-3 uppercase tracking-wide">
@@ -71,11 +71,11 @@ export default function FilterSheet({
                   key={p.value}
                   onClick={() => togglePrice(p.value)}
                   className={cn(
-                    "chip flex-1 text-center",
+                    "chip flex-1 text-center flex flex-col items-center py-3",
                     filters.priceLevels.includes(p.value) && "chip-active"
                   )}
                 >
-                  <div className="font-semibold">{p.label}</div>
+                  <div className="font-bold text-base">{p.label}</div>
                   <div className="text-[11px] opacity-60 mt-0.5">
                     {p.description}
                   </div>
@@ -102,15 +102,15 @@ export default function FilterSheet({
                     minRating: parseFloat(e.target.value),
                   })
                 }
-                className="flex-1 accent-brand-orange h-1.5 rounded-full
-                           appearance-none bg-surface-elevated
+                className="flex-1 h-1.5 rounded-full appearance-none bg-surface-elevated
                            [&::-webkit-slider-thumb]:appearance-none
                            [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5
                            [&::-webkit-slider-thumb]:rounded-full
-                           [&::-webkit-slider-thumb]:bg-brand-orange
+                           [&::-webkit-slider-thumb]:bg-brand-purple
+                           [&::-webkit-slider-thumb]:shadow-glow
                            [&::-webkit-slider-thumb]:cursor-pointer"
               />
-              <span className="text-sm font-semibold text-brand-orange min-w-[3rem] text-right">
+              <span className="text-sm font-bold gradient-text min-w-[3rem] text-right">
                 {filters.minRating > 0 ? `${filters.minRating}+` : "Any"}
               </span>
             </div>
@@ -137,15 +137,15 @@ export default function FilterSheet({
                     radiusMiles: parseInt(e.target.value),
                   })
                 }
-                className="flex-1 accent-brand-orange h-1.5 rounded-full
-                           appearance-none bg-surface-elevated
+                className="flex-1 h-1.5 rounded-full appearance-none bg-surface-elevated
                            [&::-webkit-slider-thumb]:appearance-none
                            [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5
                            [&::-webkit-slider-thumb]:rounded-full
-                           [&::-webkit-slider-thumb]:bg-brand-orange
+                           [&::-webkit-slider-thumb]:bg-brand-cyan
+                           [&::-webkit-slider-thumb]:shadow-glow
                            [&::-webkit-slider-thumb]:cursor-pointer"
               />
-              <span className="text-sm font-semibold text-brand-orange min-w-[3rem] text-right">
+              <span className="text-sm font-bold gradient-text min-w-[3rem] text-right">
                 {filters.radiusMiles} mi
               </span>
             </div>
@@ -158,8 +158,8 @@ export default function FilterSheet({
               disabled={!hasFilters}
               className="flex items-center justify-center gap-2 h-12 px-5 rounded-xl
                          bg-surface-elevated text-text-secondary border border-surface-border
-                         hover:border-brand-orange/30 disabled:opacity-30
-                         transition-all flex-1"
+                         hover:shadow-soft disabled:opacity-30
+                         transition-all flex-1 font-medium"
             >
               <RotateCcw size={16} />
               Reset
@@ -167,9 +167,7 @@ export default function FilterSheet({
             <button
               onClick={onApply}
               className="flex items-center justify-center h-12 px-5 rounded-xl
-                         bg-brand-orange text-white font-semibold
-                         hover:bg-brand-orange-dark active:scale-[0.98]
-                         transition-all flex-[2]"
+                         btn-gradient flex-[2]"
             >
               Apply Filters
             </button>
