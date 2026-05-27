@@ -1,12 +1,13 @@
 import type { Place } from "./types";
 
 // ═══════════════════════════════════════════════
-//  DateSpot Quality Algorithm
+//  DateSpot Quality Algorithm v2
 // ═══════════════════════════════════════════════
-//  Combines rating, review count, and venue type
-//  into a single quality score (0–100). Also
-//  enforces per-category minimum thresholds and
-//  classifies places into curated sections.
+//  - Per-category rating thresholds
+//  - Chain restaurant/cafe blacklist
+//  - Uniqueness scoring (prioritizes interesting venues)
+//  - Weighted quality score (0–100)
+//  - Curated section classification
 // ═══════════════════════════════════════════════
 
 // ─── Category Definitions ───────────────────
@@ -18,201 +19,304 @@ export type VenueCategory =
   | "activities"
   | "nightlife";
 
-// Maps our categories to Google Places types
 export const CATEGORY_TYPES: Record<VenueCategory, string[]> = {
   all: [],
   restaurants: [
-    "restaurant",
-    "steak_house",
-    "seafood_restaurant",
-    "fine_dining_restaurant",
-    "brunch_restaurant",
-    "hamburger_restaurant",
-    "pizza_restaurant",
-    "mexican_restaurant",
-    "chinese_restaurant",
-    "japanese_restaurant",
-    "thai_restaurant",
-    "indian_restaurant",
-    "italian_restaurant",
-    "korean_restaurant",
-    "vietnamese_restaurant",
-    "mediterranean_restaurant",
-    "american_restaurant",
+    "restaurant", "steak_house", "seafood_restaurant",
+    "fine_dining_restaurant", "brunch_restaurant",
+    "hamburger_restaurant", "pizza_restaurant",
+    "mexican_restaurant", "chinese_restaurant",
+    "japanese_restaurant", "thai_restaurant",
+    "indian_restaurant", "italian_restaurant",
+    "korean_restaurant", "vietnamese_restaurant",
+    "mediterranean_restaurant", "american_restaurant",
+    "french_restaurant", "greek_restaurant",
+    "turkish_restaurant", "ramen_restaurant",
+    "sushi_restaurant",
   ],
   cafes: [
-    "cafe",
-    "coffee_shop",
-    "bakery",
-    "ice_cream_shop",
-    "tea_house",
+    "cafe", "coffee_shop", "bakery",
+    "ice_cream_shop", "tea_house",
   ],
   parks: [
-    "park",
-    "garden",
-    "hiking_area",
-    "marina",
-    "national_park",
-    "dog_park",
-    "playground",
+    "park", "garden", "hiking_area", "marina",
+    "national_park", "dog_park", "botanical_garden",
   ],
   activities: [
-    "bowling_alley",
-    "amusement_center",
-    "escape_room",
-    "movie_theater",
-    "karaoke",
-    "comedy_club",
-    "aquarium",
-    "zoo",
-    "amusement_park",
-    "tourist_attraction",
-    "shopping_mall",
+    "bowling_alley", "amusement_center", "escape_room",
+    "movie_theater", "karaoke", "comedy_club",
+    "aquarium", "zoo", "amusement_park",
+    "tourist_attraction", "miniature_golf",
   ],
   nightlife: [
-    "bar",
-    "night_club",
-    "wine_bar",
-    "cocktail_bar",
-    "live_music_venue",
-    "performing_arts_theater",
-    "lounge",
+    "bar", "night_club", "wine_bar", "cocktail_bar",
+    "live_music_venue", "performing_arts_theater",
   ],
 };
 
-// ─── Per-Category Minimum Thresholds ────────
-// Places below these ratings get filtered out entirely
-const MIN_THRESHOLDS: Record<VenueCategory, { rating: number; reviews: number }> = {
-  all:         { rating: 3.8, reviews: 8 },
-  restaurants: { rating: 4.0, reviews: 15 },
-  cafes:       { rating: 4.0, reviews: 10 },
-  parks:       { rating: 3.5, reviews: 5 },
-  activities:  { rating: 3.8, reviews: 10 },
-  nightlife:   { rating: 3.8, reviews: 10 },
-};
+// ═══════════════════════════════════════════════
+//  CHAIN BLACKLIST
+// ═══════════════════════════════════════════════
+// Filter out major chains that aren't date-worthy.
+// Matched case-insensitively against the place name.
+const CHAIN_BLACKLIST = [
+  // Coffee/cafe chains
+  "starbucks", "peet's coffee", "peets coffee",
+  "dunkin", "dunkin' donuts", "tim hortons",
+  "caribou coffee", "dutch bros",
+  // Fast food
+  "mcdonald", "burger king", "wendy's", "wendys",
+  "taco bell", "kfc", "popeyes", "chick-fil-a",
+  "sonic drive", "jack in the box", "carl's jr",
+  "hardee", "arby's", "arbys", "subway",
+  "five guys", "shake shack", "in-n-out",
+  "whataburger", "wingstop", "raising cane",
+  "panda express", "chipotle",
+  // Casual chains
+  "applebee", "chili's", "chilis", "olive garden",
+  "red lobster", "outback steakhouse", "ihop",
+  "denny's", "dennys", "cracker barrel",
+  "buffalo wild wings", "hooters", "waffle house",
+  "golden corral", "bob evans", "perkins",
+  "texas roadhouse", "longhorn steakhouse",
+  "red robin", "t.g.i. friday", "tgi friday",
+  "cheesecake factory",
+  // Convenience / not date spots
+  "7-eleven", "wawa", "sheetz", "circle k",
+  "gas station", "convenience store",
+];
 
-// ─── Scoring Weights ────────────────────────
-const WEIGHTS = {
-  rating: 0.50,      // Rating is king
-  reviewConfidence: 0.30, // More reviews = more trustworthy
-  typeBonus: 0.20,   // Bonus for date-worthy types
-};
-
-// ─── Review count confidence curve ──────────
-// Uses a sigmoid-style curve so that:
-//   10 reviews  → ~0.25 confidence
-//   50 reviews  → ~0.60 confidence
-//   200 reviews → ~0.85 confidence
-//   500+ reviews → ~0.95 confidence
-// This is the "balanced approach" — hidden gems
-// with 30 great reviews still score decently.
-function reviewConfidence(count: number): number {
-  // Tuned sigmoid: 1 - e^(-count/150)
-  return 1 - Math.exp(-count / 150);
+function isChain(name: string): boolean {
+  const lower = name.toLowerCase();
+  return CHAIN_BLACKLIST.some((chain) => lower.includes(chain));
 }
 
-// ─── Type bonus for date-worthy venues ──────
+// ═══════════════════════════════════════════════
+//  NON-DATE PLACE FILTER
+// ═══════════════════════════════════════════════
+// Google sometimes returns places that aren't
+// date-appropriate at all. Filter them out.
+const EXCLUDED_TYPES = new Set([
+  "gas_station", "car_wash", "car_dealer", "car_rental",
+  "car_repair", "parking", "atm", "bank",
+  "dentist", "doctor", "hospital", "pharmacy",
+  "veterinary_care", "funeral_home", "cemetery",
+  "police", "fire_station", "post_office",
+  "laundry", "locksmith", "plumber", "electrician",
+  "roofing_contractor", "moving_company",
+  "insurance_agency", "real_estate_agency",
+  "grocery_or_supermarket", "supermarket",
+  "convenience_store", "department_store",
+  "hardware_store", "storage",
+  "school", "university", "church", "mosque",
+  "synagogue", "hindu_temple",
+]);
+
+function isNonDatePlace(types: string[]): boolean {
+  // If the ONLY types are excluded types, filter it out
+  // But if it has both "restaurant" and "grocery_or_supermarket", keep it
+  const dateTypes = types.filter((t) => !EXCLUDED_TYPES.has(t));
+  const hasDateType = dateTypes.some(
+    (t) =>
+      CATEGORY_TYPES.restaurants.includes(t) ||
+      CATEGORY_TYPES.cafes.includes(t) ||
+      CATEGORY_TYPES.parks.includes(t) ||
+      CATEGORY_TYPES.activities.includes(t) ||
+      CATEGORY_TYPES.nightlife.includes(t)
+  );
+  return !hasDateType;
+}
+
+// ═══════════════════════════════════════════════
+//  PER-CATEGORY THRESHOLDS
+// ═══════════════════════════════════════════════
+const MIN_THRESHOLDS: Record<VenueCategory, { rating: number; reviews: number }> = {
+  all:         { rating: 3.8, reviews: 8 },
+  restaurants: { rating: 4.2, reviews: 15 },
+  cafes:       { rating: 4.5, reviews: 10 },
+  parks:       { rating: 3.5, reviews: 5 },
+  activities:  { rating: 4.0, reviews: 10 },
+  nightlife:   { rating: 4.0, reviews: 10 },
+};
+
+// ═══════════════════════════════════════════════
+//  SCORING WEIGHTS
+// ═══════════════════════════════════════════════
+const WEIGHTS = {
+  rating: 0.40,
+  reviewConfidence: 0.20,
+  uniqueness: 0.25,
+  typeBonus: 0.15,
+};
+
+// Review confidence (sigmoid curve)
+// 30 reviews → ~0.18, 100 → ~0.49, 300 → ~0.86, 500+ → ~0.96
+function reviewConfidence(count: number): number {
+  return 1 - Math.exp(-count / 200);
+}
+
+// ─── Uniqueness score ───────────────────────
+// Heavily rewards interesting, uncommon venue types
+// that make for memorable dates.
+const VERY_UNIQUE_TYPES = new Set([
+  "escape_room", "karaoke", "comedy_club",
+  "live_music_venue", "cocktail_bar",
+  "wine_bar", "performing_arts_theater",
+  "aquarium", "zoo", "botanical_garden",
+  "amusement_park", "miniature_golf",
+]);
+
+const UNIQUE_TYPES = new Set([
+  "art_gallery", "museum", "spa",
+  "bowling_alley", "amusement_center",
+  "fine_dining_restaurant", "steak_house",
+  "seafood_restaurant", "night_club",
+  "garden", "marina", "hiking_area",
+]);
+
+const GENERIC_TYPES = new Set([
+  "restaurant", "cafe", "coffee_shop",
+  "park", "bar",
+]);
+
+function uniquenessScore(types: string[], name: string): number {
+  // Chain = 0 uniqueness
+  if (isChain(name)) return 0;
+
+  let score = 0.3; // baseline for non-chains
+
+  for (const t of types) {
+    if (VERY_UNIQUE_TYPES.has(t)) return 1.0;
+    if (UNIQUE_TYPES.has(t)) score = Math.max(score, 0.7);
+  }
+
+  // Penalize very generic types slightly
+  const allGeneric = types.every(
+    (t) => GENERIC_TYPES.has(t) || EXCLUDED_TYPES.has(t)
+  );
+  if (allGeneric) score = Math.min(score, 0.2);
+
+  return score;
+}
+
+// ─── Date-worthiness bonus ──────────────────
 const DATE_WORTHY_TYPES = new Set([
-  "fine_dining_restaurant",
-  "wine_bar",
-  "cocktail_bar",
-  "spa",
-  "art_gallery",
-  "performing_arts_theater",
-  "live_music_venue",
-  "garden",
-  "rooftop_bar",
-  "lounge",
+  "fine_dining_restaurant", "wine_bar", "cocktail_bar",
+  "spa", "art_gallery", "performing_arts_theater",
+  "live_music_venue", "garden", "botanical_garden",
 ]);
 
 const FUN_DATE_TYPES = new Set([
-  "bowling_alley",
-  "escape_room",
-  "karaoke",
-  "comedy_club",
-  "amusement_center",
-  "amusement_park",
-  "aquarium",
-  "zoo",
+  "bowling_alley", "escape_room", "karaoke",
+  "comedy_club", "amusement_center", "amusement_park",
+  "aquarium", "zoo", "miniature_golf",
 ]);
 
 function typeBonus(types: string[]): number {
-  let bonus = 0;
   for (const t of types) {
-    if (DATE_WORTHY_TYPES.has(t)) bonus = Math.max(bonus, 1.0);
-    if (FUN_DATE_TYPES.has(t)) bonus = Math.max(bonus, 0.8);
+    if (DATE_WORTHY_TYPES.has(t)) return 1.0;
+    if (FUN_DATE_TYPES.has(t)) return 0.85;
   }
-  return bonus; // 0–1 scale
+  return 0;
 }
 
-// ─── Main Quality Score (0–100) ─────────────
+// ═══════════════════════════════════════════════
+//  MAIN QUALITY SCORE (0–100)
+// ═══════════════════════════════════════════════
 export function qualityScore(place: Place): number {
-  const { rating, ratingCount, types } = place;
+  const { rating, ratingCount, types, name } = place;
 
-  // Normalize rating to 0–1 (maps 1–5 → 0–1)
+  // Rating normalized 0–1 (maps 1–5 → 0–1)
   const ratingNorm = Math.max(0, (rating - 1) / 4);
 
-  // Review confidence (0–1)
+  // Review confidence 0–1
   const confidence = reviewConfidence(ratingCount);
 
-  // Type bonus (0–1)
+  // Uniqueness 0–1
+  const uniqueness = uniquenessScore(types, name);
+
+  // Type bonus 0–1
   const bonus = typeBonus(types);
 
-  // Weighted combination
+  // Weighted sum
   const raw =
     ratingNorm * WEIGHTS.rating +
     confidence * WEIGHTS.reviewConfidence +
+    uniqueness * WEIGHTS.uniqueness +
     bonus * WEIGHTS.typeBonus;
 
-  // Scale to 0–100
   return Math.round(raw * 100);
 }
 
 // ─── Detect venue category ──────────────────
 export function detectCategory(place: Place): VenueCategory {
   const typeSet = new Set(place.types);
-
-  // Check in priority order (nightlife before restaurants
-  // so bars don't get classified as restaurants)
-  const categoryOrder: VenueCategory[] = [
-    "nightlife",
-    "cafes",
-    "activities",
-    "parks",
-    "restaurants",
+  const order: VenueCategory[] = [
+    "nightlife", "cafes", "activities", "parks", "restaurants",
   ];
-
-  for (const cat of categoryOrder) {
-    if (CATEGORY_TYPES[cat].some((t) => typeSet.has(t))) {
-      return cat;
-    }
+  for (const cat of order) {
+    if (CATEGORY_TYPES[cat].some((t) => typeSet.has(t))) return cat;
   }
-  return "restaurants"; // fallback
+  return "restaurants";
 }
 
-// ─── Filter by category thresholds ──────────
+// ═══════════════════════════════════════════════
+//  FILTERING PIPELINE
+// ═══════════════════════════════════════════════
+
+// Step 1: Remove non-date places and chains
+export function filterJunk(places: Place[]): Place[] {
+  return places.filter((p) => {
+    // Remove non-date places
+    if (isNonDatePlace(p.types)) return false;
+    // Remove chains
+    if (isChain(p.name)) return false;
+    // Must have a rating
+    if (!p.rating || p.rating === 0) return false;
+    return true;
+  });
+}
+
+// Step 2: Apply per-category quality thresholds
 export function passesThreshold(
   place: Place,
   category: VenueCategory = "all"
 ): boolean {
   const detected = category === "all" ? detectCategory(place) : category;
   const thresh = MIN_THRESHOLDS[detected] || MIN_THRESHOLDS.all;
-
   return place.rating >= thresh.rating && place.ratingCount >= thresh.reviews;
 }
 
-// ─── Filter by category tab ─────────────────
+// Step 3: Match category tab
 export function matchesCategory(
   place: Place,
   category: VenueCategory
 ): boolean {
   if (category === "all") return true;
-  const validTypes = CATEGORY_TYPES[category];
-  return place.types.some((t) => validTypes.includes(t));
+  return place.types.some((t) => CATEGORY_TYPES[category].includes(t));
 }
 
 // ═══════════════════════════════════════════════
-//  Curated Section Classification
+//  FULL RANK + FILTER PIPELINE
+// ═══════════════════════════════════════════════
+export function rankAndFilter(
+  places: Place[],
+  category: VenueCategory = "all",
+  minRating = 0,
+  priceLevels: number[] = []
+): Place[] {
+  return filterJunk(places)
+    .filter((p) => matchesCategory(p, category))
+    .filter((p) => passesThreshold(p, category))
+    .filter((p) => (minRating > 0 ? p.rating >= minRating : true))
+    .filter((p) =>
+      priceLevels.length > 0 ? priceLevels.includes(p.priceLevel) : true
+    )
+    .sort((a, b) => qualityScore(b) - qualityScore(a));
+}
+
+// ═══════════════════════════════════════════════
+//  CURATED SECTIONS
 // ═══════════════════════════════════════════════
 
 export interface CuratedSection {
@@ -223,15 +327,11 @@ export interface CuratedSection {
   places: Place[];
 }
 
-// ─── Section classifiers ────────────────────
-
 function isTrending(place: Place): boolean {
-  // High review count + good rating = trending/popular
   return place.ratingCount >= 200 && place.rating >= 4.2;
 }
 
 function isHiddenGem(place: Place): boolean {
-  // Great rating but not many reviews yet
   return (
     place.rating >= 4.5 &&
     place.ratingCount >= 10 &&
@@ -241,87 +341,70 @@ function isHiddenGem(place: Place): boolean {
 
 function isRomantic(place: Place): boolean {
   const romanticTypes = new Set([
-    "fine_dining_restaurant",
-    "wine_bar",
-    "cocktail_bar",
-    "spa",
-    "garden",
-    "performing_arts_theater",
-    "art_gallery",
-    "italian_restaurant",
-    "french_restaurant",
-    "steak_house",
-    "seafood_restaurant",
+    "fine_dining_restaurant", "wine_bar", "cocktail_bar",
+    "spa", "garden", "botanical_garden",
+    "performing_arts_theater", "art_gallery",
+    "italian_restaurant", "french_restaurant",
+    "steak_house", "seafood_restaurant",
   ]);
-  return (
-    place.rating >= 4.3 &&
-    place.types.some((t) => romanticTypes.has(t))
-  );
+  return place.rating >= 4.3 && place.types.some((t) => romanticTypes.has(t));
 }
 
 function isBudgetFriendly(place: Place): boolean {
-  return (
-    place.priceLevel <= 1 &&
-    place.rating >= 4.0
-  );
+  return place.priceLevel <= 1 && place.rating >= 4.0;
 }
 
 function isUniqueExperience(place: Place): boolean {
-  const uniqueTypes = new Set([
-    "escape_room",
-    "karaoke",
-    "comedy_club",
-    "bowling_alley",
-    "amusement_center",
-    "amusement_park",
-    "aquarium",
-    "zoo",
-    "live_music_venue",
-    "museum",
-  ]);
-  return (
-    place.rating >= 3.8 &&
-    place.types.some((t) => uniqueTypes.has(t))
-  );
+  return place.types.some((t) => VERY_UNIQUE_TYPES.has(t)) && place.rating >= 3.8;
 }
 
-// ─── Build all curated sections ─────────────
 export function buildCuratedSections(places: Place[]): CuratedSection[] {
-  // First, score and sort all places
-  const scored = places
+  // Full pipeline: junk filter → threshold → score → sort
+  const cleaned = filterJunk(places)
     .filter((p) => passesThreshold(p))
     .map((p) => ({ place: p, score: qualityScore(p) }))
     .sort((a, b) => b.score - a.score);
 
-  const scoredPlaces = scored.map((s) => s.place);
-
+  const scoredPlaces = cleaned.map((s) => s.place);
   const sections: CuratedSection[] = [];
 
-  // Top Picks — overall best by algorithm score
+  // Top Picks
   const topPicks = scoredPlaces.slice(0, 8);
   if (topPicks.length > 0) {
     sections.push({
       id: "top-picks",
       title: "Top Picks",
       icon: "🔥",
-      description: "Highest-rated date spots by our algorithm",
+      description: "Highest-ranked date spots by our algorithm",
       places: topPicks,
     });
   }
 
-  // Trending — popular spots with lots of reviews
+  // Unique Experiences (prioritized — matches user preference)
+  const unique = scoredPlaces.filter(isUniqueExperience).slice(0, 8);
+  if (unique.length > 0) {
+    sections.push({
+      id: "unique",
+      title: "Unique Experiences",
+      icon: "✨",
+      description: "Escape rooms, comedy clubs, karaoke, and more",
+      places: unique,
+    });
+  }
+
+  // Trending
   const trending = scoredPlaces.filter(isTrending).slice(0, 8);
   if (trending.length > 0) {
     sections.push({
       id: "trending",
       title: "Trending Spots",
       icon: "📈",
-      description: "Popular places everyone's talking about",
+      description: "Popular places with hundreds of great reviews",
       places: trending,
     });
   }
 
-  // Hidden Gems — high rating, lower review count
+  // Hidden Gems
   const gems = scoredPlaces.filter(isHiddenGem).slice(0, 8);
   if (gems.length > 0) {
     sections.push({
@@ -333,7 +416,7 @@ export function buildCuratedSections(places: Place[]): CuratedSection[] {
     });
   }
 
-  // Romantic Picks
+  // Romantic
   const romantic = scoredPlaces.filter(isRomantic).slice(0, 8);
   if (romantic.length > 0) {
     sections.push({
@@ -357,40 +440,5 @@ export function buildCuratedSections(places: Place[]): CuratedSection[] {
     });
   }
 
-  // Unique Experiences
-  const unique = scoredPlaces.filter(isUniqueExperience).slice(0, 8);
-  if (unique.length > 0) {
-    sections.push({
-      id: "unique",
-      title: "Unique Experiences",
-      icon: "✨",
-      description: "Something different for your next date",
-      places: unique,
-    });
-  }
-
   return sections;
-}
-
-// ─── Sort + filter a results list ───────────
-// Used when the user actively searches or picks a category tab
-export function rankAndFilter(
-  places: Place[],
-  category: VenueCategory = "all",
-  minRating = 0,
-  priceLevels: number[] = []
-): Place[] {
-  return places
-    // Category filter
-    .filter((p) => matchesCategory(p, category))
-    // Quality threshold
-    .filter((p) => passesThreshold(p, category))
-    // User-selected min rating
-    .filter((p) => (minRating > 0 ? p.rating >= minRating : true))
-    // User-selected price levels
-    .filter((p) =>
-      priceLevels.length > 0 ? priceLevels.includes(p.priceLevel) : true
-    )
-    // Sort by quality score descending
-    .sort((a, b) => qualityScore(b) - qualityScore(a));
 }

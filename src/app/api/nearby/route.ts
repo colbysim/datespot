@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { searchNearby } from "@/lib/places";
+import { multiSearchNearby } from "@/lib/places";
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const places = await searchNearby(latitude, longitude, filters);
+    const places = await multiSearchNearby(latitude, longitude, filters);
     return NextResponse.json({ places });
   } catch (e: any) {
     console.error("[nearby] Error:", e.message);

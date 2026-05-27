@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { searchByText } from "@/lib/places";
+import { multiSearchByCity } from "@/lib/places";
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const places = await searchByText(query, filters);
+    const places = await multiSearchByCity(query, filters);
     return NextResponse.json({ places });
   } catch (e: any) {
     console.error("[search] Error:", e.message);

@@ -60,12 +60,127 @@ function enrichPlaces(places: any[]): any[] {
   }));
 }
 
-// ─── Text search (by city query) ────────────
-export async function searchByText(
-  query: string,
+// ─── Single text search call ────────────────
+async function textSearch(
+  textQuery: string,
+  options: {
+    maxResults?: number;
+    latitude?: number;
+    longitude?: number;
+    radius?: number;
+    priceLevels?: string[];
+  } = {}
+): Promise<any[]> {
+  const body: any = {
+    textQuery,
+    maxResultCount: options.maxResults || 10,
+    languageCode: "en",
+  };
+
+  if (options.latitude && options.longitude) {
+    body.locationBias = {
+      circle: {
+        center: {
+          latitude: options.latitude,
+          longitude: options.longitude,
+        },
+        radius: options.radius || 24000,
+      },
+    };
+  }
+
+  if (options.priceLevels?.length) {
+    body.priceLevels = options.priceLevels;
+  }
+
+  try {
+    const response = await fetch(`${PLACES_BASE}:searchText`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": API_KEY,
+        "X-Goog-FieldMask": SEARCH_FIELDS,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      console.error(`[textSearch] "${textQuery}" failed:`, data.error?.message);
+      return [];
+    }
+    return data.places || [];
+  } catch (e: any) {
+    console.error(`[textSearch] "${textQuery}" error:`, e.message);
+    return [];
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  MULTI-CATEGORY SEARCH
+// ═══════════════════════════════════════════════
+// Makes 5 parallel targeted API calls to ensure
+// variety across dining, cafes, nightlife,
+// activities, and unique experiences.
+// ═══════════════════════════════════════════════
+
+// The specific queries we fire per category.
+// These are tuned to surface date-worthy spots,
+// not generic Google results.
+const SEARCH_CATEGORIES = [
+  {
+    id: "dining",
+    queries: [
+      "best restaurants date night",
+      "romantic dinner fine dining",
+    ],
+    maxResults: 10,
+  },
+  {
+    id: "cafes",
+    queries: [
+      "unique local cafes bakeries dessert spots",
+    ],
+    maxResults: 8,
+  },
+  {
+    id: "nightlife",
+    queries: [
+      "best bars cocktail lounges speakeasy rooftop bar",
+      "wine bar live music venue",
+    ],
+    maxResults: 10,
+  },
+  {
+    id: "activities",
+    queries: [
+      "fun date activities bowling escape room axe throwing arcade",
+      "comedy club karaoke rage room mini golf",
+    ],
+    maxResults: 10,
+  },
+  {
+    id: "culture",
+    queries: [
+      "museum art gallery botanical garden scenic park waterfront",
+    ],
+    maxResults: 6,
+  },
+] as const;
+
+// Deduplicate by place ID
+function deduplicatePlaces(places: any[]): any[] {
+  const seen = new Set<string>();
+  return places.filter((p) => {
+    if (seen.has(p.id)) return false;
+    seen.add(p.id);
+    return true;
+  });
+}
+
+export async function multiSearchByCity(
+  city: string,
   filters: {
-    experiences?: string[];
-    cuisines?: string[];
     priceLevels?: number[];
     radiusMiles?: number;
     latitude?: number;
@@ -74,116 +189,70 @@ export async function searchByText(
 ) {
   const radius = Math.min((filters.radiusMiles || 15) * 1609.34, 50000);
 
-  // Build rich search query
-  const parts: string[] = [];
-  if (filters.experiences?.length) {
-    parts.push(...filters.experiences);
-  } else {
-    parts.push("restaurants", "cafes", "bars", "activities", "things to do");
-  }
-  if (filters.cuisines?.length) {
-    parts.push(...filters.cuisines);
-  }
-  const searchQuery = `${parts.join(" ")} in ${query}`;
+  // Map price levels
+  const priceMap: Record<number, string> = {
+    1: "PRICE_LEVEL_INEXPENSIVE",
+    2: "PRICE_LEVEL_MODERATE",
+    3: "PRICE_LEVEL_EXPENSIVE",
+    4: "PRICE_LEVEL_VERY_EXPENSIVE",
+  };
+  const priceLevels = (filters.priceLevels || [])
+    .map((p) => priceMap[p])
+    .filter(Boolean);
 
-  const body: any = {
-    textQuery: searchQuery,
-    maxResultCount: 20,
-    languageCode: "en",
+  const searchOpts = {
+    latitude: filters.latitude,
+    longitude: filters.longitude,
+    radius,
+    priceLevels: priceLevels.length > 0 ? priceLevels : undefined,
   };
 
-  if (filters.latitude && filters.longitude) {
-    body.locationBias = {
-      circle: {
-        center: { latitude: filters.latitude, longitude: filters.longitude },
-        radius,
-      },
-    };
-  }
+  // Fire all category queries in parallel
+  const allPromises = SEARCH_CATEGORIES.flatMap((cat) =>
+    cat.queries.map((q) =>
+      textSearch(`${q} in ${city}`, {
+        ...searchOpts,
+        maxResults: cat.maxResults,
+      })
+    )
+  );
 
-  if (filters.priceLevels?.length) {
-    const map: Record<number, string> = {
-      1: "PRICE_LEVEL_INEXPENSIVE",
-      2: "PRICE_LEVEL_MODERATE",
-      3: "PRICE_LEVEL_EXPENSIVE",
-      4: "PRICE_LEVEL_VERY_EXPENSIVE",
-    };
-    body.priceLevels = filters.priceLevels
-      .map((p) => map[p])
-      .filter(Boolean);
-  }
+  const results = await Promise.all(allPromises);
+  const allPlaces = results.flat();
 
-  const response = await fetch(`${PLACES_BASE}:searchText`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Goog-Api-Key": API_KEY,
-      "X-Goog-FieldMask": SEARCH_FIELDS,
-    },
-    body: JSON.stringify(body),
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.error?.message || "Google API error");
-  }
-
-  return enrichPlaces(data.places);
+  // Deduplicate and enrich
+  return enrichPlaces(deduplicatePlaces(allPlaces));
 }
 
-// ─── Nearby search (by coordinates) ─────────
-export async function searchNearby(
+// ─── Nearby multi-search ────────────────────
+export async function multiSearchNearby(
   latitude: number,
   longitude: number,
   filters: { radiusMiles?: number } = {}
 ) {
   const radius = Math.min((filters.radiusMiles || 15) * 1609.34, 50000);
 
-  const body = {
-    maxResultCount: 20,
-    languageCode: "en",
-    rankPreference: "POPULARITY",
-    locationRestriction: {
-      circle: {
-        center: { latitude, longitude },
-        radius,
-      },
-    },
-    includedTypes: [
-      "restaurant",
-      "cafe",
-      "bar",
-      "night_club",
-      "bowling_alley",
-      "amusement_center",
-      "movie_theater",
-      "museum",
-      "art_gallery",
-      "spa",
-      "park",
-      "performing_arts_theater",
-    ],
-  };
+  const searchOpts = { latitude, longitude, radius };
 
-  const response = await fetch(`${PLACES_BASE}:searchNearby`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Goog-Api-Key": API_KEY,
-      "X-Goog-FieldMask": SEARCH_FIELDS,
-    },
-    body: JSON.stringify(body),
-  });
+  // Targeted nearby queries
+  const queries = [
+    "best restaurants for date night",
+    "unique cafes bakeries dessert",
+    "cocktail bars speakeasy rooftop lounge",
+    "fun activities bowling escape room arcade",
+    "museum art gallery park botanical garden",
+  ];
 
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.error?.message || "Google API error");
-  }
+  const results = await Promise.all(
+    queries.map((q) =>
+      textSearch(`${q} nearby`, { ...searchOpts, maxResults: 8 })
+    )
+  );
 
-  return enrichPlaces(data.places);
+  return enrichPlaces(deduplicatePlaces(results.flat()));
 }
 
-// ─── Place details ──────────────────────────
+// ─── Place details (unchanged) ──────────────
 export async function getPlaceDetails(placeId: string) {
   const response = await fetch(`${PLACES_BASE}/${placeId}`, {
     headers: {
@@ -197,7 +266,6 @@ export async function getPlaceDetails(placeId: string) {
     throw new Error(data.error?.message || "Google API error");
   }
 
-  // Enrich photos
   const photoUrls = (data.photos || [])
     .slice(0, 8)
     .map((p: any) => buildPhotoUrl(p.name, 800));
