@@ -139,9 +139,10 @@ const SEARCH_CATEGORIES = [
   {
     id: "cafes",
     queries: [
-      "unique local cafes bakeries dessert spots",
+      "specialty coffee shop third wave roastery",
+      "best independent cafe artisan bakery pastry shop",
     ],
-    maxResults: 8,
+    maxResults: 10,
   },
   {
     id: "nightlife",
@@ -237,7 +238,7 @@ export async function multiSearchNearby(
   // Targeted nearby queries
   const queries = [
     "best restaurants for date night",
-    "unique cafes bakeries dessert",
+    "specialty coffee independent cafe artisan bakery",
     "cocktail bars speakeasy rooftop lounge",
     "fun activities bowling escape room arcade",
     "museum art gallery park botanical garden",

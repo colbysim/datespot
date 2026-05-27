@@ -12,6 +12,7 @@ import {
 import { useDebounce } from "@/hooks/useDebounce";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useFavorites } from "@/hooks/useFavorites";
+import { usePreferences } from "@/hooks/usePreferences";
 import Navbar from "@/components/Navbar";
 import SearchBar from "@/components/SearchBar";
 import CategoryTabs from "@/components/CategoryTabs";
@@ -21,6 +22,7 @@ import SpotDetail from "@/components/SpotDetail";
 import FavoritesView from "@/components/FavoritesView";
 import SectionRow from "@/components/SectionRow";
 import EmptyState from "@/components/EmptyState";
+import WelcomeScreen from "@/components/WelcomeScreen";
 
 type Screen = "home" | "favorites" | "detail";
 
@@ -41,6 +43,7 @@ export default function HomePage() {
   const debouncedQuery = useDebounce(query, 500);
   const geo = useGeolocation();
   const { favorites, isFavorite, toggleFavorite } = useFavorites();
+  const { prefs, loaded: prefsLoaded, setCity, setUseCurrentLocation, resetPreferences } = usePreferences();
 
   // ─── Algorithm: rank + filter results ─────
   const filteredResults = useMemo(
@@ -142,19 +145,68 @@ export default function HomePage() {
     }
   }, [debouncedQuery, searchByCity]);
 
-  // ─── Request location on mount ────────────
-  useEffect(() => {
-    geo.requestLocation();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // ─── After onboarding: auto-load saved city or location ──
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
-  // ─── Auto-search nearby on location grant ──
   useEffect(() => {
-    if (geo.status === "granted" && !query.trim() && !hasSearched) {
+    if (!prefsLoaded || !prefs.hasCompletedOnboarding || initialLoadDone) return;
+
+    if (prefs.useCurrentLocation) {
+      geo.requestLocation();
+    } else if (prefs.city) {
+      setQuery(prefs.city);
+      searchByCity(prefs.city);
+      setInitialLoadDone(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefsLoaded, prefs.hasCompletedOnboarding]);
+
+  // ─── Auto-search nearby once location is granted ──
+  useEffect(() => {
+    if (
+      geo.status === "granted" &&
+      prefs.useCurrentLocation &&
+      !hasSearched &&
+      !initialLoadDone
+    ) {
       searchNearby();
+      setInitialLoadDone(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [geo.status]);
+
+  // ─── Welcome screen handlers ──────────────
+  const handleWelcomeCity = (city: string) => {
+    setCity(city);
+    setQuery(city);
+    searchByCity(city);
+  };
+
+  const handleWelcomeLocation = () => {
+    setUseCurrentLocation();
+    geo.requestLocation();
+  };
+
+  // When location comes through after welcome selection
+  useEffect(() => {
+    if (
+      geo.status === "granted" &&
+      prefs.hasCompletedOnboarding &&
+      prefs.useCurrentLocation &&
+      !hasSearched
+    ) {
+      searchNearby();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [geo.status, prefs.hasCompletedOnboarding, prefs.useCurrentLocation]);
+
+  // ─── Go home (back to "All" tab, top of page) ──
+  const goHome = useCallback(() => {
+    setActiveCategory("all");
+    setFilters(DEFAULT_FILTERS);
+    setScreen("home");
+    window.scrollTo(0, 0);
+  }, []);
 
   // ─── Navigation helpers ────────────────────
   const openDetail = (id: string) => {
@@ -171,6 +223,27 @@ export default function HomePage() {
   const selectedPlace =
     rawResults.find((p) => p.id === selectedPlaceId) ||
     favorites.find((f) => f.id === selectedPlaceId);
+
+  // ─── Don't render anything until prefs loaded ──
+  if (!prefsLoaded) {
+    return (
+      <div className="min-h-screen bg-surface-base flex items-center justify-center">
+        <div className="w-10 h-10 border-3 border-brand-purple/20 border-t-brand-purple rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // ─── Welcome screen (first visit) ─────────
+  if (!prefs.hasCompletedOnboarding) {
+    return (
+      <WelcomeScreen
+        onSelectCity={handleWelcomeCity}
+        onUseLocation={handleWelcomeLocation}
+        isLocating={geo.status === "loading"}
+        locationDenied={geo.status === "denied"}
+      />
+    );
+  }
 
   // ─── Detail view ──────────────────────────
   if (screen === "detail" && selectedPlaceId) {
@@ -192,6 +265,7 @@ export default function HomePage() {
       <Navbar
         activeScreen={screen === "favorites" ? "favorites" : "home"}
         onNavigate={(s) => setScreen(s)}
+        onGoHome={goHome}
         favoritesCount={favorites.length}
       />
 

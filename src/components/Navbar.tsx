@@ -8,20 +8,22 @@ type Screen = "home" | "favorites";
 interface NavbarProps {
   activeScreen: Screen;
   onNavigate: (screen: Screen) => void;
+  onGoHome: () => void;
   favoritesCount: number;
 }
 
 export default function Navbar({
   activeScreen,
   onNavigate,
+  onGoHome,
   favoritesCount,
 }: NavbarProps) {
   return (
     <nav className="sticky top-0 z-30 glass-strong border-b border-surface-border/60">
       <div className="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
-        {/* Logo */}
+        {/* Logo — returns to homepage */}
         <button
-          onClick={() => onNavigate("home")}
+          onClick={onGoHome}
           className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
         >
           <div className="w-8 h-8 rounded-lg gradient-brand flex items-center justify-center">

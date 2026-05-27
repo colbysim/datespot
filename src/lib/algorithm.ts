@@ -60,10 +60,23 @@ export const CATEGORY_TYPES: Record<VenueCategory, string[]> = {
 // Filter out major chains that aren't date-worthy.
 // Matched case-insensitively against the place name.
 const CHAIN_BLACKLIST = [
-  // Coffee/cafe chains
+  // Coffee/cafe chains — big corporate
   "starbucks", "peet's coffee", "peets coffee",
   "dunkin", "dunkin' donuts", "tim hortons",
   "caribou coffee", "dutch bros",
+  // Coffee/cafe chains — "lowkey" but still chains
+  "tous les jours", "paris baguette", "85 degrees",
+  "85°c", "panera", "au bon pain",
+  "cosi", "corner bakery", "la madeleine",
+  "nothing bundt cakes", "crumbl", "insomnia cookies",
+  "cinnabon", "auntie anne", "jamba", "smoothie king",
+  "tropical smoothie", "kung fu tea", "gong cha",
+  "tiger sugar", "coco fresh", "quickly",
+  // Dessert/ice cream chains
+  "baskin-robbins", "baskin robbins", "cold stone",
+  "dairy queen", "carvel", "rita's italian ice",
+  "marble slab", "menchie", "pinkberry", "yogurtland",
+  "sweet frog", "tcby",
   // Fast food
   "mcdonald", "burger king", "wendy's", "wendys",
   "taco bell", "kfc", "popeyes", "chick-fil-a",
@@ -71,8 +84,10 @@ const CHAIN_BLACKLIST = [
   "hardee", "arby's", "arbys", "subway",
   "five guys", "shake shack", "in-n-out",
   "whataburger", "wingstop", "raising cane",
-  "panda express", "chipotle",
-  // Casual chains
+  "panda express", "chipotle", "qdoba",
+  "jersey mike", "jimmy john", "firehouse subs",
+  "jason's deli", "potbelly",
+  // Casual dining chains
   "applebee", "chili's", "chilis", "olive garden",
   "red lobster", "outback steakhouse", "ihop",
   "denny's", "dennys", "cracker barrel",
@@ -288,12 +303,54 @@ export function passesThreshold(
 }
 
 // Step 3: Match category tab
+// Uses detectCategory() so each place only appears in its
+// BEST-FIT category. A cafe tagged ["cafe","restaurant"]
+// goes to Cafes, not Restaurants.
 export function matchesCategory(
   place: Place,
   category: VenueCategory
 ): boolean {
   if (category === "all") return true;
-  return place.types.some((t) => CATEGORY_TYPES[category].includes(t));
+  return detectCategory(place) === category;
+}
+
+// ═══════════════════════════════════════════════
+//  NAME DEDUPLICATION
+// ═══════════════════════════════════════════════
+// Normalizes venue names and keeps only the highest-
+// rated instance of any same-brand venue. This prevents
+// e.g. 8 "Tous Les Jours" locations flooding a section.
+function normalizeName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[''`]/g, "")           // curly quotes
+    .replace(/[^a-z0-9\s]/g, " ")   // strip punctuation
+    .replace(/\s+/g, " ")           // collapse whitespace
+    .trim();
+}
+
+export function deduplicateByName(places: Place[]): Place[] {
+  const bestByName = new Map<string, Place>();
+
+  for (const place of places) {
+    const key = normalizeName(place.name);
+    const existing = bestByName.get(key);
+
+    if (!existing) {
+      bestByName.set(key, place);
+    } else if (place.rating > existing.rating) {
+      // Keep the higher-rated location
+      bestByName.set(key, place);
+    } else if (
+      place.rating === existing.rating &&
+      place.ratingCount > existing.ratingCount
+    ) {
+      // Same rating → keep the one with more reviews
+      bestByName.set(key, place);
+    }
+  }
+
+  return Array.from(bestByName.values());
 }
 
 // ═══════════════════════════════════════════════
@@ -305,7 +362,7 @@ export function rankAndFilter(
   minRating = 0,
   priceLevels: number[] = []
 ): Place[] {
-  return filterJunk(places)
+  const filtered = filterJunk(places)
     .filter((p) => matchesCategory(p, category))
     .filter((p) => passesThreshold(p, category))
     .filter((p) => (minRating > 0 ? p.rating >= minRating : true))
@@ -313,6 +370,9 @@ export function rankAndFilter(
       priceLevels.length > 0 ? priceLevels.includes(p.priceLevel) : true
     )
     .sort((a, b) => qualityScore(b) - qualityScore(a));
+
+  // Deduplicate: keep only the best instance of each venue name
+  return deduplicateByName(filtered);
 }
 
 // ═══════════════════════════════════════════════
@@ -359,9 +419,11 @@ function isUniqueExperience(place: Place): boolean {
 }
 
 export function buildCuratedSections(places: Place[]): CuratedSection[] {
-  // Full pipeline: junk filter → threshold → score → sort
-  const cleaned = filterJunk(places)
-    .filter((p) => passesThreshold(p))
+  // Full pipeline: junk filter → threshold → dedupe → score → sort
+  const deduped = deduplicateByName(
+    filterJunk(places).filter((p) => passesThreshold(p))
+  );
+  const cleaned = deduped
     .map((p) => ({ place: p, score: qualityScore(p) }))
     .sort((a, b) => b.score - a.score);
 
