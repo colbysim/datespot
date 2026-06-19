@@ -18,7 +18,7 @@ export default function SearchBar({
   isLoading,
   onFilterClick,
   hasActiveFilters,
-  placeholder = "Search a city — e.g. Austin, TX",
+  placeholder = "Try \"Austin\" or \"sushi in Miami\"",
 }: SearchBarProps) {
   return (
     <div className="relative flex items-center gap-3">
