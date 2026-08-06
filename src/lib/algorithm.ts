@@ -19,6 +19,13 @@ export type VenueCategory =
   | "activities"
   | "nightlife";
 
+// Each type appears in EXACTLY ONE bucket — detectCategory()
+// resolves a place to a single tab, so duplicates across buckets
+// would make tab assignment unpredictable.
+//
+// Deliberately NOT listed anywhere (anti-date, would reintroduce
+// junk): fast_food_restaurant, meal_takeaway, meal_delivery,
+// food_court, cafeteria.
 export const CATEGORY_TYPES: Record<VenueCategory, string[]> = {
   all: [],
   restaurants: [
@@ -33,24 +40,53 @@ export const CATEGORY_TYPES: Record<VenueCategory, string[]> = {
     "french_restaurant", "greek_restaurant",
     "turkish_restaurant", "ramen_restaurant",
     "sushi_restaurant",
+    // ── expanded coverage ──
+    "pub", "bar_and_grill", "deli", "diner",
+    "sandwich_shop", "bagel_shop", "breakfast_restaurant",
+    "barbecue_restaurant", "vegan_restaurant",
+    "vegetarian_restaurant", "asian_restaurant",
+    "spanish_restaurant", "middle_eastern_restaurant",
+    "lebanese_restaurant", "african_restaurant",
+    "afghani_restaurant", "brazilian_restaurant",
+    "indonesian_restaurant", "buffet_restaurant",
   ],
   cafes: [
     "cafe", "coffee_shop", "bakery",
     "ice_cream_shop", "tea_house",
+    // ── expanded coverage ──
+    "dessert_shop", "dessert_restaurant", "donut_shop",
+    "chocolate_shop", "confectionery", "candy_store",
+    "juice_shop", "acai_shop", "cat_cafe", "dog_cafe",
+    "chocolate_factory",
   ],
   parks: [
     "park", "garden", "hiking_area", "marina",
     "national_park", "dog_park", "botanical_garden",
+    // ── expanded coverage ──
+    "beach", "plaza", "state_park",
+    "observation_deck", "picnic_ground",
   ],
   activities: [
     "bowling_alley", "amusement_center", "escape_room",
     "movie_theater", "karaoke", "comedy_club",
     "aquarium", "zoo", "amusement_park",
     "tourist_attraction", "miniature_golf",
+    // ── expanded coverage: culture lives here ──
+    "museum", "art_gallery", "art_studio",
+    "cultural_landmark", "historical_place", "monument",
+    "sculpture", "opera_house", "concert_hall",
+    "philharmonic_hall", "amphitheatre", "auditorium",
+    "planetarium",
+    // ── expanded coverage: recreation ──
+    "spa", "arcade", "golf_course", "ice_skating_rink",
+    "water_park", "skateboard_park", "sports_complex",
+    "wildlife_park", "ferris_wheel", "roller_coaster",
   ],
   nightlife: [
     "bar", "night_club", "wine_bar", "cocktail_bar",
     "live_music_venue", "performing_arts_theater",
+    // ── expanded coverage ──
+    "casino", "dance_hall",
   ],
 };
 
@@ -179,6 +215,9 @@ const VERY_UNIQUE_TYPES = new Set([
   "wine_bar", "performing_arts_theater",
   "aquarium", "zoo", "botanical_garden",
   "amusement_park", "miniature_golf",
+  // ── expanded coverage ──
+  "opera_house", "concert_hall", "planetarium",
+  "observation_deck", "amphitheatre",
 ]);
 
 const UNIQUE_TYPES = new Set([
@@ -187,6 +226,11 @@ const UNIQUE_TYPES = new Set([
   "fine_dining_restaurant", "steak_house",
   "seafood_restaurant", "night_club",
   "garden", "marina", "hiking_area",
+  // ── expanded coverage ──
+  "art_studio", "historical_place", "monument",
+  "cultural_landmark", "sculpture", "philharmonic_hall",
+  "arcade", "golf_course", "ice_skating_rink",
+  "beach", "wildlife_park", "casino",
 ]);
 
 const GENERIC_TYPES = new Set([
